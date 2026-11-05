@@ -1,0 +1,75 @@
+name: Build and deploy Pages
+
+on:
+  schedule:
+    # BACKSTOP only. The real schedule is the Cloudflare Worker in worker/, which
+    # dispatches this workflow at New York-anchored windows (GitHub cron is
+    # best-effort; see BondDashboard's notes on 8+ hour delays in Aug 2026).
+    # Off-:00 minutes, since round numbers are the congested slots.
+    - cron: "35 14 * * 1-5"   # ~09:35/10:35 New York
+    - cron: "35 21 * * 1-5"   # ~16:35/17:35 New York, after the close
+    - cron: "35 23 * * 1-5"   # redundancy
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two builds race to deploy, but let a running one finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-build.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: pip install -r requirements-build.txt
+
+      - name: Tests (Python, JS parity, Worker)
+        run: |
+          python -m pytest -q
+          node --test tests/js/*.test.mjs
+
+      # Build-time snapshot of the live feed, baked in as the page's fallback when
+      # the Worker is unreachable. Never fails the build.
+      - name: Snapshot live quotes
+        run: node worker/snapshot.mjs live.json "$(python scripts/build_static.py --symbols-only)"
+
+      - name: Build page
+        env:
+          # Repository variable: https://breadthnavigator.<subdomain>.workers.dev/live
+          # Unset, the page shows the build-time snapshot only.
+          LIVE_URL: ${{ vars.LIVE_URL }}
+        run: python scripts/build_static.py dist --live live.json
+        # exits non-zero (skipping the deploy) if a required pair has no history
+        # or the history is stale
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

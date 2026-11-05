@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breadth Navigator</title>
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface-1:#fcfcfb; --raised:#ffffff;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --cap:#2a78d6; --equal:#eb6834; --spread:#6250d6;
+  --good:#008300; --warn:#c98500;
+  --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface-1:#1a1a19; --raised:#212120;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --cap:#3987e5; --equal:#d95926; --spread:#9085e9;
+    --good:#2fa82f; --warn:#e0a020;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface-1:#1a1a19; --raised:#212120;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+  --cap:#3987e5; --equal:#d95926; --spread:#9085e9;
+  --good:#2fa82f; --warn:#e0a020;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--plane);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1280px;margin:0 auto;padding:22px 16px 64px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+h1{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px}
+h2{font-size:15px;font-weight:600;margin:0 0 10px}
+.sub{color:var(--ink-2);font-size:12.5px;margin:0}
+.status{display:flex;align-items:center;gap:8px;color:var(--ink-2);font-size:12.5px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:0 0 auto}
+.dot.live{background:var(--good)} .dot.stale{background:var(--warn)}
+button.ghost{background:var(--surface-1);color:var(--ink-2);border:1px solid var(--border);border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+button.ghost:hover{background:var(--raised);color:var(--ink)}
+.banner{border:1px solid var(--warn);color:var(--ink);background:var(--surface-1);border-radius:10px;padding:8px 12px;margin-bottom:14px;font-size:13px}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);min-width:0}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--grid)}
+th{font-weight:500;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:0}
+tr.pick{cursor:pointer} tr.pick:hover td{background:var(--raised)}
+tr.sel td{background:var(--raised)} tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--spread)}
+.legs{color:var(--muted);font-size:12px;margin-left:6px}
+.bar{display:inline-block;width:64px;height:6px;border-radius:3px;background:var(--grid);vertical-align:middle;margin-left:8px;position:relative;overflow:hidden}
+.bar>i{position:absolute;left:0;top:0;bottom:0;background:var(--spread);border-radius:3px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.flabel{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:4px}
+.chip{border:1px solid var(--border);background:transparent;color:var(--ink-2);border-radius:999px;padding:4px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+.chip:hover{background:var(--raised);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface-1);border-color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:12px 0 4px}
+.kpi .l{color:var(--muted);font-size:12px}
+.kpi .v{font-size:24px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.kpi .s{color:var(--ink-2);font-size:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px}
+.chart{position:relative;min-width:0}
+.chart h3{font-size:13px;font-weight:600;margin:0 0 2px}
+.chart .cap{color:var(--muted);font-size:12px;margin:0 0 6px}
+.chart svg{display:block;width:100%;height:240px;overflow:visible;touch-action:pan-y}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink-2);margin:0 0 4px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:2px;border-radius:1px;display:inline-block}
+.tip{position:absolute;pointer-events:none;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:var(--shadow);white-space:nowrap;display:none;z-index:2;font-variant-numeric:tabular-nums}
+.tip b{font-weight:600}
+.tip .sw{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+svg text{fill:var(--muted);font-size:11px;font-family:inherit}
+.empty{color:var(--muted);font-size:13px;padding:40px 0;text-align:center}
+.note{color:var(--muted);font-size:12px;margin:10px 0 0}
+footer{color:var(--muted);font-size:12px;margin-top:20px;line-height:1.7}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Breadth Navigator</h1>
+      <p class="sub">Cap-weighted vs equal-weighted. Spread = cap return − equal return: positive means mega-caps are leading (narrowing breadth), negative means the average stock is.</p>
+    </div>
+    <div class="status"><span id="dot" class="dot"></span><span id="status">Loading…</span>
+      <button class="ghost" id="theme" type="button" aria-label="Toggle theme">Theme</button></div>
+  </header>
+  <div id="banner" class="banner hidden"></div>
+
+  <section class="card">
+    <h2>All indices</h2>
+    <div class="scroll"><table id="overview"></table></div>
+    <p class="note" id="ovnote"></p>
+  </section>
+
+  <section class="card">
+    <div class="chips" id="pairchips"><span class="flabel">Index</span></div>
+    <div class="kpis" id="kpis"></div>
+    <p class="note" id="pairnote"></p>
+  </section>
+
+  <section class="card">
+    <div class="grid2">
+      <div class="chart" id="c-intra"></div>
+      <div class="chart" id="c-intraspread"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Period returns <span class="legs">total return, live</span></h2>
+    <div class="scroll"><table id="periods"></table></div>
+  </section>
+
+  <section class="card">
+    <div class="chips" id="lbchips"><span class="flabel">History</span></div>
+    <div class="grid2" style="margin-top:12px">
+      <div class="chart" id="c-cum"></div>
+      <div class="chart" id="c-ratio"></div>
+    </div>
+    <div class="chart" id="c-roll" style="margin-top:16px"></div>
+    <p class="note">Cumulative ETF figures include the fee differential (e.g. QQQM 0.15% vs QQQE 0.35% ≈ 20 bp a year in the cap leg's favour) and any premium/discount. Intraday moves are price-only against the prior close, so an ex-dividend day shows the dividend drop until the next build.</p>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>/*__METRICS__*/</script>
+<script>
+const DATA = /*__DATA__*/;
+const H = DATA.history, S = DATA.settings;
+const NY = "America/New_York", UK = "Europe/London";
+const LOOKBACKS = { "6M": 6, "1Y": 12, "3Y": 36, "5Y": 60, "Max": null };
+const state = { pair: DATA.pairs[0] && DATA.pairs[0].id, lb: "3Y", live: DATA.live, liveSrc: "build", liveErr: null, liveAt: null };
+
+// ---------- theme ----------
+(function () {
+  let t = null;
+  try { t = localStorage.getItem("bn-theme"); } catch (e) {}
+  if (t) document.documentElement.dataset.theme = t;
+  document.getElementById("theme").onclick = () => {
+    const dark = getComputedStyle(document.documentElement).colorScheme.includes("dark");
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("bn-theme", next); } catch (e) {}
+    renderAll();
+  };
+})();
+
+// ---------- formatting ----------
+const fin = Number.isFinite;
+const sign = (x) => Math.abs(x) < 1e-12 ? "" : x > 0 ? "+" : "−";
+const pct = (x, dp = 2) => fin(x) ? sign(x) + Math.abs(x * 100).toFixed(dp) + "%" : "–";
+const bp = (x) => fin(x) ? sign(x) + Math.abs(Math.round(x * 1e4)) + " bp" : "–";
+const num = (x, dp = 2) => fin(x) ? (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(dp) : "–";
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtTime = (epoch, tz, opts) => new Intl.DateTimeFormat("en-GB", { timeZone: tz, ...opts }).format(new Date(epoch * 1000));
+const hm = (epoch, tz) => fmtTime(epoch, tz, { hour: "2-digit", minute: "2-digit", hour12: false });
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const dLabel = (s, withDay) => { const [y, m, d] = s.split("-"); return (withDay ? +d + " " : "") + MON[+m - 1] + " " + (withDay ? y : y.slice(2)); };
+
+function nyNow() {
+  const p = {}; for (const x of new Intl.DateTimeFormat("en-US", { timeZone: NY, weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date())) p[x.type] = x.value;
+  return { wd: p.weekday, mins: (parseInt(p.hour, 10) % 24) * 60 + parseInt(p.minute, 10) };
+}
+function marketOpen() { const n = nyNow(); return !["Sat", "Sun"].includes(n.wd) && n.mins >= 570 && n.mins <= 965; } // ignores holidays
+
+// ---------- chart ----------
+function niceTicks(lo, hi, n = 5) {
+  if (!(hi > lo)) { hi = lo + 1e-9; }
+  const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((s) => s >= raw);
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toFixed(12));
+  return out;
+}
+
+/**
+ * Line chart. opts: {title, caption, x: [values], xLabel(i) for ticks, tipLabel(i),
+ * series: [{name, color (css var), values}], yFmt, ref (horizontal reference line)}
+ */
+function lineChart(el, opts) {
+  const n = opts.x.length;
+  const legend = opts.series.length > 1 ? `<div class="legend">${opts.series.map((s) => `<span><i style="background:var(${s.color})"></i>${esc(s.name)}</span>`).join("")}</div>` : "";
+  el.innerHTML = `<h3>${esc(opts.title)}</h3>${opts.caption ? `<p class="cap">${esc(opts.caption)}</p>` : ""}${legend}` +
+    (n < 2 ? `<div class="empty">${esc(opts.emptyText || "No data")}</div>` : `<svg role="img" aria-label="${esc(opts.title)}"></svg><div class="tip"></div>`);
+  if (n < 2) return;
+  const svg = el.querySelector("svg"), tip = el.querySelector(".tip");
+  const W = svg.clientWidth || 600, Ht = 240, m = { l: 52, r: 12, t: 8, b: 24 };
+  const iw = W - m.l - m.r, ih = Ht - m.t - m.b;
+  let lo = Infinity, hi = -Infinity;
+  for (const s of opts.series) for (const v of s.values) if (fin(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  if (opts.ref != null) { lo = Math.min(lo, opts.ref); hi = Math.max(hi, opts.ref); }
+  const pad = (hi - lo) * 0.06 || Math.abs(hi) * 0.01 || 1e-4; lo -= pad; hi += pad;
+  const X = (i) => m.l + (n === 1 ? 0 : i / (n - 1) * iw);
+  const Y = (v) => m.t + (1 - (v - lo) / (hi - lo)) * ih;
+  let g = "";
+  for (const t of niceTicks(lo, hi)) {
+    if (t < lo || t > hi) continue;
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)" stroke-width="1"/>` +
+         `<text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end">${opts.yFmt(t, true)}</text>`;
+  }
+  if (opts.ref != null) g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(opts.ref)}" y2="${Y(opts.ref)}" stroke="var(--axis)" stroke-width="1.5"/>`;
+  const nt = Math.max(2, Math.min(6, Math.floor(iw / 110)));
+  for (let k = 0; k < nt; k++) {
+    const i = Math.round(k * (n - 1) / (nt - 1));
+    g += `<text x="${X(i)}" y="${Ht - 6}" text-anchor="${k === 0 ? "start" : k === nt - 1 ? "end" : "middle"}">${esc(opts.xLabel(i))}</text>`;
+  }
+  for (const s of opts.series) {
+    let d = "", pen = false;
+    s.values.forEach((v, i) => { if (fin(v)) { d += (pen ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1); pen = true; } else pen = false; });
+    g += `<path d="${d}" fill="none" stroke="var(${s.color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  g += `<line class="xh" y1="${m.t}" y2="${m.t + ih}" stroke="var(--axis)" stroke-width="1" visibility="hidden"/>`;
+  g += opts.series.map((s, k) => `<circle class="hd" data-k="${k}" r="4" fill="var(${s.color})" stroke="var(--surface-1)" stroke-width="2" visibility="hidden"/>`).join("");
+  g += `<rect x="${m.l}" y="0" width="${iw}" height="${Ht}" fill="transparent"/>`;
+  svg.setAttribute("viewBox", `0 0 ${W} ${Ht}`);
+  svg.innerHTML = g;
+  const xh = svg.querySelector(".xh"), dots = svg.querySelectorAll(".hd");
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = (ev.clientX - r.left) * (W / r.width);
+    const i = Math.max(0, Math.min(n - 1, Math.round((px - m.l) / iw * (n - 1))));
+    xh.setAttribute("x1", X(i)); xh.setAttribute("x2", X(i)); xh.setAttribute("visibility", "visible");
+    let rows = "";
+    opts.series.forEach((s, k) => {
+      const v = s.values[i], dot = dots[k];
+      if (fin(v)) { dot.setAttribute("cx", X(i)); dot.setAttribute("cy", Y(v)); dot.setAttribute("visibility", "visible"); }
+      else dot.setAttribute("visibility", "hidden");
+      rows += `<div><span class="sw" style="background:var(${s.color})"></span>${esc(s.name)} <b>${opts.yFmt(v)}</b></div>`;
+    });
+    tip.innerHTML = `<div style="color:var(--muted);margin-bottom:2px">${esc(opts.tipLabel(i))}</div>${rows}`;
+    tip.style.display = "block";
+    const left = (X(i) / W) * r.width, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(r.width - tw, left + (left > r.width / 2 ? -tw - 12 : 12))) + "px";
+    tip.style.top = (r.top - el.getBoundingClientRect().top + 8) + "px";
+  };
+  const leave = () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); dots.forEach((d) => d.setAttribute("visibility", "hidden")); };
+  svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", leave);
+}
+
+// ---------- render ----------
+const quotes = () => (state.live && state.live.quotes) || {};
+const pairById = (id) => DATA.pairs.find((p) => p.id === id);
+
+function renderStatus() {
+  const dot = document.getElementById("dot"), st = document.getElementById("status");
+  const q = Object.values(quotes()), t = q.length ? Math.max(...q.map((x) => x.time || 0)) : null;
+  const open = marketOpen();
+  let txt = open ? "Market open" : "Market closed";
+  if (t) txt += ` · last trade ${hm(t, NY)} ET / ${hm(t, UK)} UK`;
+  txt += state.liveSrc === "worker" ? " · live feed" : DATA.live_url ? " · live feed unavailable, showing build snapshot" : " · build snapshot";
+  st.textContent = txt;
+  dot.className = "dot" + (state.liveSrc === "worker" && open ? " live" : state.liveErr ? " stale" : "");
+  const errs = (state.live && state.live.errors) || [];
+  const b = document.getElementById("banner");
+  const lastDate = H.dates[H.dates.length - 1];
+  const notes = [];
+  if (errs.length) notes.push("Live quotes missing for " + errs.map((e) => esc(e.symbol)).join(", ") + ".");
+  if (state.liveErr) notes.push("Live feed error: " + esc(state.liveErr) + ".");
+  const ageH = (Date.now() - Date.parse(DATA.generated)) / 3.6e6;
+  if (ageH > 30 && !["Sat", "Sun"].includes(nyNow().wd)) notes.push(`Daily history was built ${Math.round(ageH)} hours ago (last session ${esc(lastDate)}); the scheduled rebuild may have been missed.`);
+  b.innerHTML = notes.join(" "); b.classList.toggle("hidden", !notes.length);
+}
+
+function renderOverview() {
+  const rows = DATA.pairs.map((p) => ({ p, s: BN.snapshot(H, p, quotes(), S.rolling_window, S.zscore_lookback) }));
+  const w = S.rolling_window;
+  let h = `<thead><tr><th>Index</th><th>Today cap</th><th>Today equal</th><th>Today spread</th><th>1M spread</th><th>YTD spread</th><th>1Y spread</th><th>${w}d spread</th><th title="${w}-day spread vs trailing ${S.zscore_lookback}-day distribution">Z-score</th><th title="Cap/equal ratio vs its own history (100 = most concentrated)">Ratio pctile</th></tr></thead><tbody>`;
+  for (const { p, s } of rows) {
+    h += `<tr class="pick${p.id === state.pair ? " sel" : ""}" data-id="${esc(p.id)}"><td>${esc(p.name)}<span class="legs">${esc(p.cap)}/${esc(p.equal)}</span></td>` +
+      `<td>${pct(s.today_cap)}</td><td>${pct(s.today_equal)}</td><td><b>${bp(s.today_spread)}</b></td>` +
+      `<td>${pct(s.spread_1M)}</td><td>${pct(s.spread_YTD)}</td><td>${pct(s.spread_1Y)}</td><td>${pct(s.roll)}</td>` +
+      `<td>${num(s.zscore)}</td><td>${fin(s.ratio_pctile) ? Math.round(s.ratio_pctile) : "–"}<span class="bar"><i style="width:${fin(s.ratio_pctile) ? s.ratio_pctile : 0}%"></i></span></td></tr>`;
+  }
+  const t = document.getElementById("overview");
+  t.innerHTML = h + "</tbody>";
+  t.querySelectorAll("tr.pick").forEach((tr) => tr.onclick = () => { state.pair = tr.dataset.id; renderAll(); });
+  document.getElementById("ovnote").textContent = "Select a row for detail. Spreads in percentage points of return; today's spread in basis points.";
+}
+
+function renderChips() {
+  const pc = document.getElementById("pairchips");
+  pc.innerHTML = `<span class="flabel">Index</span>` + DATA.pairs.map((p) => `<button class="chip" type="button" data-id="${esc(p.id)}" aria-pressed="${p.id === state.pair}">${esc(p.name)}</button>`).join("");
+  pc.querySelectorAll("button").forEach((b) => b.onclick = () => { state.pair = b.dataset.id; renderAll(); });
+  const lc = document.getElementById("lbchips");
+  lc.innerHTML = `<span class="flabel">History</span>` + Object.keys(LOOKBACKS).map((k) => `<button class="chip" type="button" data-k="${k}" aria-pressed="${k === state.lb}">${k}</button>`).join("");
+  lc.querySelectorAll("button").forEach((b) => b.onclick = () => { state.lb = b.dataset.k; try { localStorage.setItem("bn-lb", state.lb); } catch (e) {} renderAll(); });
+}
+
+function renderDetail() {
+  const pair = pairById(state.pair); if (!pair) return;
+  const p = BN.withLive(BN.pairPrices(H, pair), pair, quotes());
+  const pr = BN.periodReturns(p), roll = BN.rollingSpread(p, S.rolling_window);
+  const z = BN.lastZscore(roll, S.zscore_lookback), intra = BN.intradaySpread(H, pair, quotes());
+  const k = intra.t.length - 1;
+  const kpi = (l, v, s) => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v">${v}</div>${s ? `<div class="s">${esc(s)}</div>` : ""}</div>`;
+  document.getElementById("kpis").innerHTML =
+    kpi(`${pair.cap} today`, pct(k >= 0 ? intra.cap[k] : NaN)) +
+    kpi(`${pair.equal} today`, pct(k >= 0 ? intra.equal[k] : NaN)) +
+    kpi("Spread today", bp(k >= 0 ? intra.spread[k] : NaN), k >= 0 ? `at ${hm(intra.t[k], NY)} ET` : "no session bars") +
+    kpi(`${S.rolling_window}-day spread`, pct(roll[roll.length - 1])) +
+    kpi("Z-score", num(z), `vs trailing ${S.zscore_lookback} sessions`);
+  document.getElementById("pairnote").textContent = pair.notes || "";
+
+  const sess = intra.session ? dLabel(intra.session, true) : "";
+  lineChart(document.getElementById("c-intra"), {
+    title: "Intraday, % vs prior close", caption: sess, x: intra.t, emptyText: "No intraday bars yet",
+    series: [{ name: pair.cap, color: "--cap", values: intra.cap }, { name: pair.equal, color: "--equal", values: intra.equal }],
+    yFmt: (v) => pct(v), ref: 0, xLabel: (i) => hm(intra.t[i], NY), tipLabel: (i) => hm(intra.t[i], NY) + " ET",
+  });
+  lineChart(document.getElementById("c-intraspread"), {
+    title: "Intraday spread, cap − equal", caption: sess, x: intra.t, emptyText: "No intraday bars yet",
+    series: [{ name: "Spread", color: "--spread", values: intra.spread }],
+    yFmt: (v, axis) => axis ? bp(v).replace(" bp", "") : bp(v), ref: 0, xLabel: (i) => hm(intra.t[i], NY), tipLabel: (i) => hm(intra.t[i], NY) + " ET",
+  });
+
+  const per = BN.PERIODS;
+  document.getElementById("periods").innerHTML =
+    `<thead><tr><th></th>${per.map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>` +
+    [[pair.cap, "cap"], [pair.equal, "equal"], ["Spread", "spread"]].map(([lab, f]) =>
+      `<tr><td>${f === "spread" ? "<b>Spread</b>" : esc(lab)}</td>${per.map((x) => `<td>${f === "spread" ? "<b>" + pct(pr[x][f]) + "</b>" : pct(pr[x][f])}</td>`).join("")}</tr>`).join("") + "</tbody>";
+
+  const last = p.dates[p.dates.length - 1], months = LOOKBACKS[state.lb];
+  const start = months ? BN.subMonths(last, months) : null;
+  const rb = BN.rebased(p, start), ratio = BN.relativeRatio(p, start);
+  const i0 = rb.dates.length ? p.dates.indexOf(rb.dates[0]) : 0;
+  const rollW = roll.slice(i0), long = (months || 99) > 12;
+  const xl = (ds) => (i) => dLabel(ds[i], !long), tl = (ds) => (i) => dLabel(ds[i], true);
+  lineChart(document.getElementById("c-cum"), {
+    title: "Cumulative total return", caption: rb.dates.length ? "since " + dLabel(rb.dates[0], true) : "",
+    x: rb.dates, series: [{ name: pair.cap, color: "--cap", values: rb.cap.map((v) => v / 100 - 1) }, { name: pair.equal, color: "--equal", values: rb.equal.map((v) => v / 100 - 1) }],
+    yFmt: (v, axis) => pct(v, axis ? 0 : 1), ref: 0, xLabel: xl(rb.dates), tipLabel: tl(rb.dates),
+  });
+  lineChart(document.getElementById("c-ratio"), {
+    title: `Relative ratio ${pair.cap}/${pair.equal}`, caption: "rebased to 100; rising = concentration",
+    x: ratio.dates, series: [{ name: "Ratio", color: "--spread", values: ratio.values }],
+    yFmt: (v) => fin(v) ? v.toFixed(1) : "–", ref: 100, xLabel: xl(ratio.dates), tipLabel: tl(ratio.dates),
+  });
+  lineChart(document.getElementById("c-roll"), {
+    title: `Rolling ${S.rolling_window}-day spread, cap − equal`, caption: "",
+    x: rb.dates, series: [{ name: "Spread", color: "--spread", values: rollW }],
+    yFmt: (v, axis) => pct(v, axis ? 0 : 2), ref: 0, xLabel: xl(rb.dates), tipLabel: tl(rb.dates),
+  });
+}
+
+function renderFoot() {
+  const g = new Date(DATA.generated);
+  const src = DATA.live_url ? `live bars polled every ${S.poll_seconds}s from the Worker` : "live bars from the build snapshot only (LIVE_URL not set)";
+  document.getElementById("foot").innerHTML =
+    `Daily history: ${esc(DATA.provider)}, ${esc(H.dates[0] || "")} to ${esc(H.dates[H.dates.length - 1] || "")}, built ${esc(new Intl.DateTimeFormat("en-GB", { timeZone: UK, dateStyle: "medium", timeStyle: "short" }).format(g))} UK. ` +
+    `Intraday: Yahoo 1-minute bars, ${src}${state.liveAt ? `, last poll ${esc(new Intl.DateTimeFormat("en-GB", { timeZone: UK, timeStyle: "medium" }).format(state.liveAt))} UK` : ""}. Unofficial data, for monitoring only.`;
+}
+
+function renderAll() {
+  if (!DATA.pairs.length) { document.getElementById("status").textContent = "No pairs in this build"; return; }
+  renderStatus(); renderOverview(); renderChips(); renderDetail(); renderFoot();
+}
+
+// ---------- live polling ----------
+async function pollLive() {
+  if (!DATA.live_url || document.hidden) return;
+  try {
+    const r = await fetch(DATA.live_url, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const body = await r.json();
+    if (!body.quotes || !Object.keys(body.quotes).length) throw new Error("no quotes");
+    state.live = body; state.liveSrc = "worker"; state.liveErr = null; state.liveAt = new Date();
+  } catch (e) {
+    state.liveErr = String(e.message || e);
+    if (state.liveSrc !== "worker") state.live = DATA.live;
+  }
+  renderAll();
+}
+
+try { const lb = localStorage.getItem("bn-lb"); if (lb && lb in LOOKBACKS) state.lb = lb; } catch (e) {}
+renderAll();
+pollLive();
+setInterval(() => { if (marketOpen() || state.liveSrc !== "worker") pollLive(); }, (S.poll_seconds || 60) * 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pollLive(); });
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderDetail, 150); });
+</script>
+</body>
+</html>

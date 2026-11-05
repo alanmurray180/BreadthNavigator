@@ -1,0 +1,37 @@
+# Must match the Worker's name in Cloudflare (cron + secrets attach to the name).
+name = "breadthnavigator"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# UTC-only cron; fires hourly at :35 across every UTC hour that can be 09-18 New York
+# under EST or EDT, and the Worker's gate (src/index.js SLOTS) picks the windows.
+# Do not narrow the range. Edit here, never in the Cloudflare dashboard.
+[triggers]
+crons = ["35 13-23 * * MON-FRI"]
+
+[vars]
+GITHUB_OWNER = "alanmurray180"
+GITHUB_REPO = "BreadthNavigator"
+WORKFLOW_FILE = "pages.yml"
+GIT_REF = "main"
+# Allow-list for GET /live. tests/test_site.py fails if config/pairs.yaml uses a
+# symbol that is not here, so the page can never ask for something the Worker refuses.
+SYMBOLS = "QQQM,QQQE,QQQ,QQEW,SPY,RSP,DIA,EDOW,IWB,EQAL,^NDX,^NDXE"
+
+# Branch previews must never dispatch a real build.
+[previews.vars]
+GITHUB_OWNER = "alanmurray180"
+GITHUB_REPO = "BreadthNavigator"
+WORKFLOW_FILE = "preview-cannot-dispatch.yml"
+GIT_REF = "main"
+SYMBOLS = "QQQM,QQQE,QQQ,QQEW,SPY,RSP,DIA,EDOW,IWB,EQAL,^NDX,^NDXE"
+
+# Secrets (never in the repo):
+#   wrangler secret put GITHUB_TOKEN   fine-grained PAT, this repo only, Actions: read+write
+#   wrangler secret put TRIGGER_KEY    optional, for the manual POST endpoint
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true

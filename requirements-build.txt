@@ -1,0 +1,7 @@
+# Pages build only (no Streamlit). The local dashboard uses requirements.txt.
+pandas>=2.2
+numpy>=1.26
+pyyaml>=6.0
+requests>=2.31
+yfinance>=0.2.54
+pytest>=8.0
