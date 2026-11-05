@@ -4,3 +4,7 @@ __pycache__/
 .env
 *.csv
 .pytest_cache/
+dist/
+live.json
+node_modules/
+.wrangler/

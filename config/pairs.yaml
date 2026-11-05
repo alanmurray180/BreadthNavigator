@@ -25,6 +25,7 @@ pairs:
     cap: ^NDX
     equal: ^NDXE             # Yahoo symbol - verify on first run
     providers: [yahoo]       # index levels are not available on every provider
+    optional: true           # Pages build warns rather than fails if it is missing
     notes: Price-return index levels; no fee drag or ETF premium/discount.
 
   - id: spx500

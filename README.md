@@ -7,14 +7,36 @@ Tracks the return spread between cap-weighted and equal-weighted versions of an 
 Positive = mega-caps leading (narrowing breadth / rising concentration).
 Negative = the average stock leading (broadening).
 
-## Run
+## Live site (GitHub Pages)
+
+`.github/workflows/pages.yml` builds `dist/index.html` (one self-contained page with the
+daily history baked in) and deploys it to GitHub Pages on every push to `main`, on
+`workflow_dispatch`, and on a backstop cron. The page polls the Cloudflare Worker in
+[`worker/`](worker/README.md) for live 1-minute bars and recomputes every spread in the
+browser with `site/metrics.js`, the JavaScript twin of `breadthnav/metrics.py`
+(`tests/test_site.py` fails if the two disagree). Without the Worker the page still works,
+showing the live snapshot taken at build time.
+
+One-time setup:
+
+1. Repo → Settings → Pages → Source: **GitHub Actions**.
+2. Merge to `main` (the first push builds and deploys).
+3. Deploy the Worker and set the `LIVE_URL` repository variable: see `worker/README.md`.
+
+The build fails, and Pages keeps the previous version, if a required pair has no history or
+the history is more than 4 business days old. An `optional: true` pair (e.g. `^NDX`/`^NDXE`)
+is dropped with a warning instead.
+
+## Run locally
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py          # dashboard, auto-refreshes every 60s in US market hours
 python -m breadthnav          # one-off snapshot in the terminal
 python -m breadthnav --csv spread_log.csv   # append a snapshot (schedule with cron)
-pytest -q                     # calculation tests
+pytest -q                     # calculation + JS parity tests
+node --test tests/js/*.test.mjs   # Worker tests
+python scripts/build_static.py dist   # build the Pages site locally
 ```
 
 ## What the dashboard shows
@@ -46,7 +68,8 @@ Append a pair to `config/pairs.yaml`:
 ```
 
 Use `providers: [yahoo]` to restrict a pair to sources that carry its symbols (e.g. index levels
-such as `^NDX` / `^NDXE`). A new data source = one class implementing `Provider.daily` and
+such as `^NDX` / `^NDXE`). For the Pages site, also add any new symbols to `SYMBOLS` in `worker/wrangler.toml`.
+A new data source = one class implementing `Provider.daily` and
 `Provider.intraday` (see `breadthnav/providers/base.py`) plus one line in the registry.
 
 ## Method notes

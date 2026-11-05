@@ -17,6 +17,7 @@ class Pair:
     equal: str
     notes: str = ""
     providers: tuple[str, ...] = ()  # empty = all providers
+    optional: bool = False  # a missing optional pair warns instead of failing the build
 
     @property
     def symbols(self) -> list[str]:
