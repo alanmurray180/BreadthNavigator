@@ -1,0 +1,43 @@
+# BreadthNavigator configuration.
+# Each pair compares a cap-weighted tracker with its equal-weighted sibling.
+# spread = cap-weighted return - equal-weighted return.
+#   > 0  -> mega-caps leading (narrowing breadth / rising concentration)
+#   < 0  -> the average stock leading (broadening breadth)
+# Add a new index by appending a pair; nothing else needs to change.
+
+settings:
+  provider: yahoo            # yahoo | alpaca | fmp   (override with BREADTHNAV_PROVIDER)
+  refresh_seconds: 60        # dashboard auto-refresh during market hours
+  intraday_interval: 1m      # 1m | 5m | 15m
+  history_start: 2018-01-01  # each pair starts at the first date both legs trade
+  rolling_window: 21         # trading days for the rolling return spread
+  zscore_lookback: 252       # trading days used to normalise the rolling spread
+
+pairs:
+  - id: ndx100
+    name: Nasdaq-100
+    cap: QQQM                # Invesco, 0.15% TER, incepted Oct-2020
+    equal: QQQE              # Direxion, 0.35% TER
+    notes: QQQ (0.20%) / QQEW (First Trust, 0.57%) are alternative legs.
+
+  - id: ndx100_index
+    name: Nasdaq-100 (index level)
+    cap: ^NDX
+    equal: ^NDXE             # Yahoo symbol - verify on first run
+    providers: [yahoo]       # index levels are not available on every provider
+    notes: Price-return index levels; no fee drag or ETF premium/discount.
+
+  - id: spx500
+    name: S&P 500
+    cap: SPY
+    equal: RSP
+
+  - id: djia
+    name: Dow Jones Industrial
+    cap: DIA
+    equal: EDOW
+
+  - id: r1000
+    name: Russell 1000
+    cap: IWB
+    equal: EQAL
