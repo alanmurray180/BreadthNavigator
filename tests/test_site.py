@@ -164,3 +164,23 @@ def test_build_blocks_on_stale_history():
               for s in unique_symbols(cfg.pairs_for("yahoo"))}
     _, fatal = build_static.build_payload(cfg, frame_from_series(frames), None, "yahoo")
     assert any("business days ago" in f for f in fatal)
+
+
+@pytest.mark.parametrize("url,ok", [
+    ("https://breadthnavigator.alan-ae0.workers.dev/live", True),
+    ("https://breadthnavigator.alan-ae0.workers.dev/live/", True),
+    ("https//:breadthnavigator.alan-ae0.workers.dev/live", False),  # the real typo, Nov 2026
+    ("http://breadthnavigator.alan-ae0.workers.dev/live", False),
+    ("breadthnavigator.alan-ae0.workers.dev/live", False),
+    ("https://breadthnavigator.alan-ae0.workers.dev/", False),
+])
+def test_live_url_validation(url, ok, monkeypatch):
+    assert (build_static.check_live_url(url) is None) == ok
+    monkeypatch.setenv("LIVE_URL", url)
+    cfg = load_config()
+    daily = synthetic_daily()
+    frames = {(f, s): daily[(f, "CAP")] for f in ("close", "adj_close")
+              for s in unique_symbols(cfg.pairs_for("yahoo"))}
+    data, fatal = build_static.build_payload(cfg, frame_from_series(frames), None, "yahoo")
+    assert not fatal
+    assert ("live_url" in data) == ok and ("live_url_error" in data) == (not ok)

@@ -20,6 +20,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pandas as pd
 
@@ -85,8 +86,26 @@ def build_payload(cfg, daily: pd.DataFrame, live: dict | None, provider: str) ->
     }
     live_url = os.environ.get("LIVE_URL", "").strip()
     if live_url:
-        data["live_url"] = live_url
+        problem = check_live_url(live_url)
+        if problem:
+            # Deploy anyway (the history is still worth publishing) but say so on
+            # the run and on the page, rather than leaving a bare 404 in the banner.
+            annotate("error", "LIVE_URL misconfigured", problem)
+            data["live_url_error"] = problem
+        else:
+            data["live_url"] = live_url
     return data, fatal
+
+
+def check_live_url(url: str) -> str | None:
+    """Reason the LIVE_URL repository variable is unusable, or None if it is fine."""
+    u = urlparse(url)
+    if u.scheme != "https" or not u.netloc or "." not in u.netloc:
+        return (f"LIVE_URL {url!r} is not an absolute https:// address; expected something like "
+                "https://breadthnavigator.<subdomain>.workers.dev/live")
+    if u.path.rstrip("/") != "/live":
+        return f"LIVE_URL {url!r} should end in /live"
+    return None
 
 
 def render(data: dict) -> str:
