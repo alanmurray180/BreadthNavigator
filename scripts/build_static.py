@@ -79,8 +79,8 @@ def build_payload(cfg, daily: pd.DataFrame, live: dict | None, provider: str) ->
         "provider": provider,
         "settings": {"rolling_window": s.rolling_window, "zscore_lookback": s.zscore_lookback,
                      "poll_seconds": s.refresh_seconds},
-        "pairs": [{"id": p.id, "name": p.name, "cap": p.cap, "equal": p.equal, "notes": p.notes}
-                  for p in pairs],
+        "pairs": [{"id": p.id, "name": p.name, "cap": p.cap, "equal": p.equal, "notes": p.notes,
+                   "duplicate_of": p.duplicate_of} for p in pairs],
         "history": history_payload(daily, symbols) if pairs else {"dates": [], "adj": {}, "close": {}},
         "live": live,
     }
@@ -111,10 +111,12 @@ def check_live_url(url: str) -> str | None:
 def render(data: dict) -> str:
     tpl = (ROOT / "site" / "template.html").read_text(encoding="utf-8")
     js = (ROOT / "site" / "metrics.js").read_text(encoding="utf-8")
-    for ph in ("/*__DATA__*/", "/*__METRICS__*/"):
+    commentary = (ROOT / "site" / "commentary.js").read_text(encoding="utf-8")
+    for ph in ("/*__DATA__*/", "/*__METRICS__*/", "/*__COMMENTARY__*/"):
         assert ph in tpl, f"placeholder {ph} missing from template"
     blob = json.dumps(data, separators=(",", ":"), allow_nan=False).replace("</", "<\\/")
-    return tpl.replace("/*__METRICS__*/", js).replace("/*__DATA__*/", blob)
+    return (tpl.replace("/*__METRICS__*/", js).replace("/*__COMMENTARY__*/", commentary)
+               .replace("/*__DATA__*/", blob))
 
 
 def main(argv=None) -> int:

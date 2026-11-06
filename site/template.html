@@ -85,6 +85,13 @@ svg text{fill:var(--muted);font-size:11px;font-family:inherit}
 .note{color:var(--muted);font-size:12px;margin:10px 0 0}
 footer{color:var(--muted);font-size:12px;margin-top:20px;line-height:1.7}
 .hidden{display:none}
+.read{border-left:3px solid var(--spread)}
+.read .kicker{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 6px}
+.read .headline{font-size:16px;font-weight:600;line-height:1.45;margin:0 0 12px;max-width:80ch}
+.read h3{font-size:12px;font-weight:600;color:var(--ink-2);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px}
+.read ul{margin:0;padding-left:18px;color:var(--ink);line-height:1.55}
+.read li{margin:0 0 6px}
+.read .lanes{gap:20px}
 </style>
 </head>
 <body>
@@ -98,6 +105,17 @@ footer{color:var(--muted);font-size:12px;margin-top:20px;line-height:1.7}
       <button class="ghost" id="theme" type="button" aria-label="Toggle theme">Theme</button></div>
   </header>
   <div id="banner" class="banner hidden"></div>
+
+  <section class="card read" aria-labelledby="read-h">
+    <p class="kicker" id="read-h">The read <span id="read-when"></span></p>
+    <p class="headline" id="read-headline"></p>
+    <div class="grid2 lanes">
+      <div><h3>Session</h3><ul id="read-today"></ul></div>
+      <div><h3>Longer term</h3><ul id="read-longer"></ul></div>
+    </div>
+    <p class="note" id="read-notes"></p>
+    <p class="note">Written by rule from the figures below and updated with each live poll. Descriptive, not a recommendation.</p>
+  </section>
 
   <section class="card">
     <h2>All indices</h2>
@@ -137,6 +155,7 @@ footer{color:var(--muted);font-size:12px;margin-top:20px;line-height:1.7}
 </div>
 
 <script>/*__METRICS__*/</script>
+<script>/*__COMMENTARY__*/</script>
 <script>
 const DATA = /*__DATA__*/;
 const H = DATA.history, S = DATA.settings;
@@ -364,9 +383,20 @@ function renderFoot() {
     `Intraday: Yahoo 1-minute bars, ${src}${state.liveAt ? `, last poll ${esc(new Intl.DateTimeFormat("en-GB", { timeZone: UK, timeStyle: "medium" }).format(state.liveAt))} UK` : ""}. Unofficial data, for monitoring only.`;
 }
 
+function renderRead() {
+  const r = BNC.compose({ hist: H, pairs: DATA.pairs, settings: S, quotes: quotes(),
+    nowEpoch: Date.now() / 1000, marketOpen: marketOpen() });
+  const li = (xs) => xs.map((x) => `<li>${esc(x)}</li>`).join("");
+  document.getElementById("read-headline").textContent = r.headline;
+  document.getElementById("read-today").innerHTML = li(r.today);
+  document.getElementById("read-longer").innerHTML = li(r.longer);
+  document.getElementById("read-notes").textContent = r.notes.join(" ");
+  document.getElementById("read-when").textContent = state.liveSrc === "worker" ? "· live" : "· from the build snapshot";
+}
+
 function renderAll() {
   if (!DATA.pairs.length) { document.getElementById("status").textContent = "No pairs in this build"; return; }
-  renderStatus(); renderOverview(); renderChips(); renderDetail(); renderFoot();
+  renderStatus(); renderRead(); renderOverview(); renderChips(); renderDetail(); renderFoot();
 }
 
 // ---------- live polling ----------
