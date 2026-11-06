@@ -26,6 +26,7 @@ pairs:
     equal: ^NDXE             # Yahoo symbol - verify on first run
     providers: [yahoo]       # index levels are not available on every provider
     optional: true           # Pages build warns rather than fails if it is missing
+    duplicate_of: ndx100     # same index as ndx100: not double-counted in the commentary
     notes: Price-return index levels; no fee drag or ETF premium/discount.
 
   - id: spx500

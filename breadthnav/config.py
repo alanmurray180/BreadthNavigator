@@ -18,6 +18,7 @@ class Pair:
     notes: str = ""
     providers: tuple[str, ...] = ()  # empty = all providers
     optional: bool = False  # a missing optional pair warns instead of failing the build
+    duplicate_of: str = ""  # same index as another pair; left out of cross-index counts
 
     @property
     def symbols(self) -> list[str]:

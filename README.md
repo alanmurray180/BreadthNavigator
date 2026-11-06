@@ -27,6 +27,23 @@ The build fails, and Pages keeps the previous version, if a required pair has no
 the history is more than 4 business days old. An `optional: true` pair (e.g. `^NDX`/`^NDXE`)
 is dropped with a warning instead.
 
+## The read (commentary box)
+
+`site/commentary.js` writes the box at the top of the page by rule, in the browser, from
+the same functions that draw the table, so it updates with each live poll and every figure
+in it is a figure on the page. Two lanes:
+
+* **Session**: how many indices broadened or narrowed; the lead index's regime (narrow
+  rally, broad rally, defensive concentration, concentration unwinding); the size of the
+  day's spread in sigmas against the past year and the last time it was as large; whether
+  the intraday move is building or fading; stale thin legs.
+* **Longer term**: the cap/equal ratio's trend against its 50- and 200-day averages, its
+  percentile and distance from peak; the past month across indices with the most extreme
+  21-day spread; the return from holding cap- rather than equal-weight over 1M / YTD / 1Y.
+
+Pairs with `duplicate_of` (the index-level Nasdaq pair) are left out of cross-index counts.
+Thresholds are constants at the top of the file. Tests: `tests/js/commentary.test.mjs`.
+
 ## Run locally
 
 ```bash
