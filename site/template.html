@@ -255,7 +255,8 @@ const pairById = (id) => DATA.pairs.find((p) => p.id === id);
 
 function renderStatus() {
   const dot = document.getElementById("dot"), st = document.getElementById("status");
-  const q = Object.values(quotes()), t = q.length ? Math.max(...q.map((x) => x.time || 0)) : null;
+  const q = Object.entries(quotes()).filter(([s]) => !s.startsWith("^")).map(([, x]) => x);
+  const t = q.length ? Math.max(...q.map((x) => x.time || 0)) : null;
   const open = marketOpen();
   let txt = open ? "Market open" : "Market closed";
   if (t) txt += ` · last trade ${hm(t, NY)} ET / ${hm(t, UK)} UK`;
@@ -267,6 +268,7 @@ function renderStatus() {
   const lastDate = H.dates[H.dates.length - 1];
   const notes = [];
   if (errs.length) notes.push("Live quotes missing for " + errs.map((e) => esc(e.symbol)).join(", ") + ".");
+  if (DATA.live_url_error) notes.push("Live feed not connected: " + esc(DATA.live_url_error) + ". Fix the LIVE_URL repository variable and re-run the Pages workflow.");
   if (state.liveErr) notes.push("Live feed error: " + esc(state.liveErr) + ".");
   const ageH = (Date.now() - Date.parse(DATA.generated)) / 3.6e6;
   if (ageH > 30 && !["Sat", "Sun"].includes(nyNow().wd)) notes.push(`Daily history was built ${Math.round(ageH)} hours ago (last session ${esc(lastDate)}); the scheduled rebuild may have been missed.`);
