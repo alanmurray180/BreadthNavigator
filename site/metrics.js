@@ -97,6 +97,23 @@ const BN = (() => {
       : (p.cap[i] / p.cap[i - w] - 1) - (p.equal[i] / p.equal[i - w] - 1));
   }
 
+  /**
+   * Concentration vs breadth days: +1 when cap-weight beat equal-weight on the session,
+   * −1 when equal-weight won, 0 for an exact tie; running total from the window start.
+   * The window's first day is scored against the session before it when there is one.
+   */
+  function dayScores(p, start = null) {
+    const i0 = Math.max(startIndex(p, start), 1);
+    const out = { dates: [], score: [], cum: [] };
+    let run = 0;
+    for (let i = i0; i < p.dates.length; i++) {
+      const s = Math.sign((p.cap[i] / p.cap[i - 1]) - (p.equal[i] / p.equal[i - 1]));
+      run += s;
+      out.dates.push(p.dates[i]); out.score.push(s); out.cum.push(run);
+    }
+    return out;
+  }
+
   /** z of the last value vs the trailing `lookback` window (pandas rolling, ddof=1). */
   function lastZscore(values, lookback) {
     const win = values.slice(Math.max(0, values.length - lookback)).filter((v) => Number.isFinite(v));
@@ -194,7 +211,7 @@ const BN = (() => {
   }
 
   return { PERIODS, subMonths, subDays, pairPrices, periodReturns, rebased, relativeRatio,
-           rollingSpread, lastZscore, percentileRank, withLive, priorClose, intradaySpread, snapshot };
+           rollingSpread, dayScores, lastZscore, percentileRank, withLive, priorClose, intradaySpread, snapshot };
 })();
 
 if (typeof module !== "undefined") module.exports = BN;

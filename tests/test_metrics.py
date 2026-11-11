@@ -102,3 +102,14 @@ def test_shipped_config_loads_and_symbols_dedupe():
     assert all(p.id != "ndx100_index" for p in cfg.pairs_for("alpaca"))
     syms = unique_symbols(list(cfg.pairs))
     assert len(syms) == len(set(syms))
+
+
+def test_day_scores_sign_and_running_total():
+    # cap returns: +10%, 0%, -1%, +2% ; equal: +5%, +1%, -1%, +3%
+    d = make_daily([100, 110, 110, 108.9, 111.078], [100, 105, 106.05, 104.9895, 108.139185])
+    out = m.day_scores(m.pair_prices(d, PAIR))
+    assert out["score"].tolist() == [1, -1, 0, -1]
+    assert out["cum"].tolist() == [1, 0, 0, -1]
+    # window start: first day scored against the previous session, total restarts
+    w = m.day_scores(m.pair_prices(d, PAIR), start=d.index[2])
+    assert w["score"].tolist() == [-1, 0, -1] and w["cum"].tolist() == [-1, -1, -2]

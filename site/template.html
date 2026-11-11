@@ -74,8 +74,8 @@ tr.sel td{background:var(--raised)} tr.sel td:first-child{box-shadow:inset 3px 0
 .chart h3{font-size:13px;font-weight:600;margin:0 0 2px}
 .chart .cap{color:var(--muted);font-size:12px;margin:0 0 6px}
 .chart svg{display:block;width:100%;height:240px;overflow:visible;touch-action:pan-y}
-.legend{display:flex;gap:14px;font-size:12px;color:var(--ink-2);margin:0 0 4px}
-.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--ink-2);margin:0 0 4px}
+.legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .legend i{width:14px;height:2px;border-radius:1px;display:inline-block}
 .tip{position:absolute;pointer-events:none;background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:var(--shadow);white-space:nowrap;display:none;z-index:2;font-variant-numeric:tabular-nums}
 .tip b{font-weight:600}
@@ -148,6 +148,7 @@ footer{color:var(--muted);font-size:12px;margin-top:20px;line-height:1.7}
       <div class="chart" id="c-ratio"></div>
     </div>
     <div class="chart" id="c-roll" style="margin-top:16px"></div>
+    <div class="chart" id="c-days" style="margin-top:16px"></div>
     <p class="note">Cumulative ETF figures include the fee differential (e.g. QQQM 0.15% vs QQQE 0.35% ≈ 20 bp a year in the cap leg's favour) and any premium/discount. Intraday moves are price-only against the prior close, so an ex-dividend day shows the dividend drop until the next build.</p>
   </section>
 
@@ -268,6 +269,76 @@ function lineChart(el, opts) {
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", leave);
 }
 
+/**
+ * Concentration vs breadth days: a strip of ±1 marks (one per session) above a
+ * running-total line, sharing one date axis. Two panels, not two y-scales.
+ * opts: {title, caption, dates, score, cum, xLabel(i), tipLabel(i)}
+ */
+function scoreChart(el, opts) {
+  const n = opts.dates.length;
+  el.innerHTML = `<h3>${esc(opts.title)}</h3>${opts.caption ? `<p class="cap">${esc(opts.caption)}</p>` : ""}` +
+    `<div class="legend"><span><i style="background:var(--cap)"></i>Concentration day +1</span>` +
+    `<span><i style="background:var(--equal)"></i>Breadth day −1</span>` +
+    `<span><i style="background:var(--spread)"></i>Running total</span></div>` +
+    (n < 2 ? `<div class="empty">No data</div>` : `<svg role="img" aria-label="${esc(opts.title)}" style="height:300px"></svg><div class="tip"></div>`);
+  if (n < 2) return;
+  const svg = el.querySelector("svg"), tip = el.querySelector(".tip");
+  const W = svg.clientWidth || 600, Ht = 300, m = { l: 52, r: 12, t: 6, b: 24 };
+  const stripH = 56, gap = 14, iw = W - m.l - m.r;
+  const sTop = m.t, sMid = sTop + stripH / 2;                    // strip: +1 up, −1 down
+  const lTop = sTop + stripH + gap, lh = Ht - lTop - m.b;         // running-total panel
+  const X = (i) => m.l + (n === 1 ? 0 : i / (n - 1) * iw);
+  let lo = Math.min(0, ...opts.cum), hi = Math.max(0, ...opts.cum);
+  const pad = Math.max(1, (hi - lo) * 0.06); lo -= pad; hi += pad;
+  const Y = (v) => lTop + (1 - (v - lo) / (hi - lo)) * lh;
+  const bw = Math.max(0.6, Math.min(3, iw / n * 0.7)), half = stripH / 2 - 2;
+  let g = `<text x="${m.l - 8}" y="${sMid - half + 9}" text-anchor="end">+1</text>` +
+          `<text x="${m.l - 8}" y="${sMid + half}" text-anchor="end">−1</text>` +
+          `<line x1="${m.l}" x2="${W - m.r}" y1="${sMid}" y2="${sMid}" stroke="var(--axis)" stroke-width="1"/>`;
+  let up = "", dn = "";
+  opts.score.forEach((v, i) => {
+    const x = X(i).toFixed(1);
+    if (v > 0) up += `M${x} ${sMid - 1}V${sMid - half}`;
+    else if (v < 0) dn += `M${x} ${sMid + 1}V${sMid + half}`;
+  });
+  g += `<path d="${up}" stroke="var(--cap)" stroke-width="${bw}" fill="none"/><path d="${dn}" stroke="var(--equal)" stroke-width="${bw}" fill="none"/>`;
+  for (const t of niceTicks(lo, hi, 4)) {
+    if (t < lo || t > hi) continue;
+    g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--grid)" stroke-width="1"/>` +
+         `<text x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end">${t > 0 ? "+" : t < 0 ? "−" : ""}${Math.abs(t)}</text>`;
+  }
+  g += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--axis)" stroke-width="1.5"/>`;
+  g += `<path d="${opts.cum.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("")}" fill="none" stroke="var(--spread)" stroke-width="2" stroke-linejoin="round"/>`;
+  const nt = Math.max(2, Math.min(6, Math.floor(iw / 110)));
+  for (let k = 0; k < nt; k++) {
+    const i = Math.round(k * (n - 1) / (nt - 1));
+    g += `<text x="${X(i)}" y="${Ht - 6}" text-anchor="${k === 0 ? "start" : k === nt - 1 ? "end" : "middle"}">${esc(opts.xLabel(i))}</text>`;
+  }
+  g += `<line class="xh" y1="${sTop}" y2="${lTop + lh}" stroke="var(--axis)" stroke-width="1" visibility="hidden"/>` +
+       `<circle class="hd" r="4" fill="var(--spread)" stroke="var(--surface-1)" stroke-width="2" visibility="hidden"/>` +
+       `<rect x="${m.l}" y="0" width="${iw}" height="${Ht}" fill="transparent"/>`;
+  svg.setAttribute("viewBox", `0 0 ${W} ${Ht}`);
+  svg.innerHTML = g;
+  const xh = svg.querySelector(".xh"), dot = svg.querySelector(".hd");
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(n - 1, Math.round(((ev.clientX - r.left) * (W / r.width) - m.l) / iw * (n - 1))));
+    xh.setAttribute("x1", X(i)); xh.setAttribute("x2", X(i)); xh.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", X(i)); dot.setAttribute("cy", Y(opts.cum[i])); dot.setAttribute("visibility", "visible");
+    const sc = opts.score[i], what = sc > 0 ? "Concentration day" : sc < 0 ? "Breadth day" : "Tie";
+    const c = opts.cum[i];
+    tip.innerHTML = `<div style="color:var(--muted);margin-bottom:2px">${esc(opts.tipLabel(i))}</div>` +
+      `<div><span class="sw" style="background:var(${sc > 0 ? "--cap" : sc < 0 ? "--equal" : "--axis"})"></span>${what} <b>${sc > 0 ? "+1" : sc < 0 ? "−1" : "0"}</b></div>` +
+      `<div><span class="sw" style="background:var(--spread)"></span>Running total <b>${c > 0 ? "+" : c < 0 ? "−" : ""}${Math.abs(c)}</b></div>`;
+    tip.style.display = "block";
+    const left = (X(i) / W) * r.width, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(r.width - tw, left + (left > r.width / 2 ? -tw - 12 : 12))) + "px";
+    tip.style.top = (r.top - el.getBoundingClientRect().top + 8) + "px";
+  };
+  const leave = () => { tip.style.display = "none"; xh.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
+  svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move); svg.addEventListener("pointerleave", leave);
+}
+
 // ---------- render ----------
 const quotes = () => (state.live && state.live.quotes) || {};
 const pairById = (id) => DATA.pairs.find((p) => p.id === id);
@@ -372,6 +443,15 @@ function renderDetail() {
     title: `Rolling ${S.rolling_window}-day spread, cap − equal`, caption: "",
     x: rb.dates, series: [{ name: "Spread", color: "--spread", values: rollW }],
     yFmt: (v, axis) => pct(v, axis ? 0 : 2), ref: 0, xLabel: xl(rb.dates), tipLabel: tl(rb.dates),
+  });
+  const days = BN.dayScores(p, start);
+  const nc = days.score.filter((v) => v > 0).length, nb = days.score.filter((v) => v < 0).length;
+  const net = days.cum.length ? days.cum[days.cum.length - 1] : 0;
+  scoreChart(document.getElementById("c-days"), {
+    title: "Concentration vs breadth days",
+    caption: days.dates.length ? `+1 when ${pair.cap} beat ${pair.equal} on the day, −1 when it lagged; running total since ${dLabel(days.dates[0], true)}. ` +
+      `${nc} concentration days, ${nb} breadth days (${Math.round(nc / Math.max(1, nc + nb) * 100)}% concentration), net ${net > 0 ? "+" : net < 0 ? "−" : ""}${Math.abs(net)}.` : "",
+    dates: days.dates, score: days.score, cum: days.cum, xLabel: xl(days.dates), tipLabel: tl(days.dates),
   });
 }
 

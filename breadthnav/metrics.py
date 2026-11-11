@@ -75,6 +75,17 @@ def rolling_spread(prices: pd.DataFrame, window: int) -> pd.Series:
     return (r["cap"] - r["equal"]).rename(f"spread_{window}d")
 
 
+def day_scores(prices: pd.DataFrame, start: pd.Timestamp | None = None) -> pd.DataFrame:
+    """+1 on sessions where cap-weight beat equal-weight (concentration), -1 where
+    equal-weight won (breadth), 0 for an exact tie; `cum` is the running total from
+    the window start. The first day of the window is scored against the day before it."""
+    rel = prices["cap"] / prices["cap"].shift() - prices["equal"] / prices["equal"].shift()
+    score = np.sign(rel).iloc[1:]
+    if start is not None:
+        score = score[score.index >= start]
+    return pd.DataFrame({"score": score.astype(int), "cum": score.cumsum().astype(int)})
+
+
 def zscore(series: pd.Series, lookback: int) -> pd.Series:
     mean = series.rolling(lookback, min_periods=lookback // 2).mean()
     std = series.rolling(lookback, min_periods=lookback // 2).std()
