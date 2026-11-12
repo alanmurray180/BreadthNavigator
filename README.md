@@ -61,7 +61,9 @@ python scripts/build_static.py dist   # build the Pages site locally
 * **All indices** – today's spread, 1M / YTD / 1Y spread, rolling 21-day spread, its z-score
   vs the trailing year, and where the cap/equal ratio sits in its own history.
 * **Detail** – intraday % vs prior close for both legs, intraday spread, period-return table,
-  cumulative total return, relative ratio and rolling spread history.
+  cumulative total return, relative ratio and rolling spread history, and a
+  concentration-vs-breadth day count (+1 when cap-weight beat equal-weight on the day,
+  −1 when it lagged, with the running total from the start of the chosen window).
 
 ## Data sources
 

@@ -66,20 +66,21 @@ def live_fixture(daily):
     return intraday, quotes
 
 
-def run_js(hist, quotes, window=21, lookback=252):
+def run_js(hist, quotes, window=21, lookback=252, start=None):
     script = f"""
 const BN = require({json.dumps(str(ROOT / 'site' / 'metrics.js'))});
 const inp = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 const pair = {{id: 't', cap: 'CAP', equal: 'EQ'}};
 const p = BN.withLive(BN.pairPrices(inp.hist, pair), pair, inp.quotes);
 const out = {{
+  scores: BN.dayScores(p, inp.start),
   snap: BN.snapshot(inp.hist, pair, inp.quotes, {window}, {lookback}),
   periods: BN.periodReturns(p),
   intra: BN.intradaySpread(inp.hist, pair, inp.quotes),
 }};
 process.stdout.write(JSON.stringify(out, (k, v) => (typeof v === 'number' && !isFinite(v)) ? null : v));
 """
-    r = subprocess.run([NODE, "-e", script], input=json.dumps({"hist": hist, "quotes": quotes}),
+    r = subprocess.run([NODE, "-e", script], input=json.dumps({"hist": hist, "quotes": quotes, "start": start}),
                        capture_output=True, text=True, check=True)
     return json.loads(r.stdout)
 
@@ -109,6 +110,15 @@ def test_js_matches_python(with_live):
     for per in m.PERIODS:
         for f in ("cap", "equal", "spread"):
             assert close(pr.loc[per, f], js["periods"][per][f]), (per, f)
+
+    sc = m.day_scores(m.pair_prices(d, PAIR))
+    assert js["scores"]["score"] == sc["score"].tolist()
+    assert js["scores"]["cum"] == sc["cum"].tolist()
+    assert js["scores"]["dates"] == [x.strftime("%Y-%m-%d") for x in sc.index]
+    start = d.index[-300]
+    js_w = run_js(hist, quotes, start=start.strftime("%Y-%m-%d"))["scores"]
+    sc_w = m.day_scores(m.pair_prices(d, PAIR), start=start)
+    assert js_w["cum"] == sc_w["cum"].tolist() and len(js_w["dates"]) == 300
 
     if with_live:
         intra = m.intraday_spread(intraday, d, PAIR)
