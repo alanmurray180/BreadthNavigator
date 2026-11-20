@@ -69,7 +69,17 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
+      # GitHub's Pages API answers the odd 5xx (502 on 13 Nov 2026). Try once more
+      # after a pause before failing the run; a real outage still fails it.
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - if: steps.deployment.outcome == 'failure'
+        run: sleep 60
+
+      - id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
